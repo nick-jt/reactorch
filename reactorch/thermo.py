@@ -3,10 +3,9 @@ import torch
 
 def cp_mole_func(self):
 
-    self.cp_T = torch.cat([self.T ** 0, self.T, self.T ** 2, self.T ** 3, self.T ** 4], dim=1)
-
-    self.cp = (torch.mm(self.cp_T, self.nasa_low[:, :5].T) * (self.T <= 1000).int() +
-               torch.mm(self.cp_T, self.nasa_high[:, :5].T) * (self.T > 1000).int())
+    self.cp_T = torch.cat([self.T**-2, self.T**-1, self.T**0, self.T, self.T**2, self.T**3, self.T**4], dim=1)
+    self.cp = (torch.mm(self.cp_T, self.nasa_low[:, :6].T) * (self.T <= 1000).int()
+        + torch.mm(self.cp_T, self.nasa_high[:, :6].T) * (self.T > 1000).int())
 
     self.cp_mole = (self.R * self.cp * self.X.clone()).sum(dim=1)
 
@@ -18,11 +17,14 @@ def cp_mass_func(self):
 
 def enthalpy_mole_func(self):
 
-    self.H_T = torch.cat((self.T ** 0, self.T / 2, self.T ** 2 / 3,
-                          self.T ** 3 / 4, self.T ** 4 / 5, 1 / self.T), dim=1)
+    self.H_T = torch.cat(
+        ( -self.T**-2, torch.log(self.T) / self.T, self.T**0, self.T / 2, 
+         self.T**2 / 3, self.T**3 / 4, self.T**4 / 5, 1 / self.T,), dim=1,)
 
-    self.H = (torch.mm(self.H_T, self.nasa_low[:, :6].T) * (self.T <= 1000).int() +
-              torch.mm(self.H_T, self.nasa_high[:, :6].T) * (self.T > 1000).int())
+    self.H = (
+        torch.mm(self.H_T, self.nasa_low[:, :7].T) * (self.T <= 1000).int()
+        + torch.mm(self.H_T, self.nasa_high[:, :7].T) * (self.T > 1000).int()
+    )
 
     self.H = self.H * self.R * self.T
 
@@ -40,12 +42,18 @@ def enthalpy_mass_func(self):
 
 def entropy_mole_func(self):
 
-    self.S_T = torch.cat((torch.log(self.T), self.T, self.T ** 2 / 2,
-                          self.T ** 3 / 3, self.T ** 4 / 4, self.T ** 0), dim=1)
+    self.S_T = torch.cat(
+        (-0.5 * self.T**-2, -self.T**-1, torch.log(self.T), self.T,
+            self.T**2 / 2, self.T**3 / 3, self.T**4 / 4, self.T**0),
+        dim=1,
+    )
 
     self.S0 = (
-        torch.mm(self.S_T, self.nasa_low[:, [0, 1, 2, 3, 4, 6]].T) * (self.T <= 1000).int() +
-        torch.mm(self.S_T, self.nasa_high[:, [0, 1, 2, 3, 4, 6]].T) * (self.T > 1000).int())
+        torch.mm(self.S_T, self.nasa_low[:, [0, 1, 2, 3, 4, 5, 6, 8]].T)
+        * (self.T <= 1000).int()
+        + torch.mm(self.S_T, self.nasa_high[:, [0, 1, 2, 3, 4, 5, 6, 8]].T)
+        * (self.T > 1000).int()
+    )
 
     self.S0 = self.S0 * self.R
 
